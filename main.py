@@ -30,4 +30,4 @@ if __name__ == "__main__":
         result = agent.run(objective)
         print(f"Agent run completed: {result}")
     except Exception as e:
-        print(f"Agent failed: {e}")
+        print(f"Agent run failed: {e}")

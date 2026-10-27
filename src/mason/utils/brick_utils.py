@@ -13,7 +13,7 @@ class Objective(BaseModel):
         default=None, description="The directory to save the output design."
     )
     design_summary: str | None = None
-    bricks_design: list[dict] | None = None
+    bricks_design: dict = {}
     simulation_result: dict | None = None
     user_prompt: str | None = None
     validation: bool | None = None
@@ -22,7 +22,8 @@ class Objective(BaseModel):
 
 class Brick(BaseModel):
     position: tuple[float, float, float] = Field(
-        ..., description="The (x, y, z) position of the brick in meters."
+        ...,
+        description="The (x, y, z) center point of the brick in meters. The dimensions of the brick are 0.2m x 0.1m x 0.065m (in X x in Y x in Z). So the position needs to be set accordingly to ensure the brick is placed correctly and not overlapping.",
     )
     rotation: tuple[float, float, float] = Field(
         default=(0.0, 0.0, 0.0), description="The (x, y, z) rotation of the brick in radians."

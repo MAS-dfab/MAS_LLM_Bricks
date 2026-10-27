@@ -10,13 +10,13 @@ from pydantic_ai.models.openai import OpenAIResponsesModel, OpenAIResponsesModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.usage import UsageLimits
 
-from mason.contexts import apply_context_descriptions, load_context
+from mason.contexts import load_context
 from mason.utils.blender_utils import BlenderSimulation
 from mason.utils.brick_utils import BrickDesign, Objective
 
 load_dotenv(override=True)
 
-MODEL_NAME_DEFAULT = "gpt-6-luna"
+MODEL_NAME_DEFAULT = "gpt-6-sol"
 OUTPUT_DIR_DEFAULT = Path(__file__).parents[3] / "output"
 MAX_GH_TOOL_CALLS = 3
 
@@ -28,18 +28,17 @@ class AgentFailedError(Exception):
 class MasonAgent:
     def __init__(self, model_name=MODEL_NAME_DEFAULT):
         self._context = load_context("masonry")
-        output_model = apply_context_descriptions(BrickDesign, self._context)
         self.model = OpenAIResponsesModel(
             model_name,
             provider=OpenAIProvider(api_key=os.getenv("OPENAI_API_KEY")),
-            settings=OpenAIResponsesModelSettings(openai_reasoning_effort="none"),
+            settings=OpenAIResponsesModelSettings(openai_reasoning_effort="low"),
         )
 
         self.agent = Agent(
             model=self.model,
             name="MasonAgent",
-            output_type=output_model,
-            deps_type=str,
+            output_type=str,
+            deps_type=dict,
             instructions=self._context.system_prompt,
         )
         self.last_usage = None
@@ -68,7 +67,9 @@ class MasonAgent:
                 return ToolReturn(return_value=f"Error generating snapshot: {e}")
 
         @self.agent.tool(retries=3)
-        def validate_brick_design(ctx: RunContext[dict], design: BrickDesign) -> str:
+        def validate_brick_design(ctx: RunContext[dict], design: BrickDesign) -> ToolReturn:
+            output_dir = Path(ctx.deps.get("output_dir"))
+            print(f"Validating design with {len(design.bricks)} bricks...")
             try:
                 bricks = design.bricks
                 bricks_data = [brick.model_dump() for brick in bricks]
@@ -76,30 +77,35 @@ class MasonAgent:
 
                 # Validate the design
                 sim = BlenderSimulation(bricks_data=bricks_data)
-                result = sim.run_simulation(log_every=10, verbose=False, margin=0.05)
+                result = sim.run_simulation(log_every=5, verbose=False, margin=0.05)
 
                 # Update the context with the validation result
                 ctx.deps["validation"] = result["success"]
                 ctx.deps["attempts"] = ctx.deps.get("attempts", 0) + 1
-                ctx.deps["bricks_design"] = bricks_data
+                ctx.deps["bricks_design"][ctx.deps.get("attempts", 0) + 1] = bricks_data
                 ctx.deps["design_summary"] = summary
+                ctx.deps["simulation_result"] = result
+                print(result)
+
+                snapshot_path = output_dir / f"snapshot_{dt.now().strftime('%H%M%S')}.png"
+                snapshot = sim.get_snapshot(filepath=str(snapshot_path), frame=result.get("frame"))
 
                 if result["success"]:
-                    # generate snapshot of the design
-                    snapshot_path = (
-                        ctx.deps.get("output_dir") / f"snapshot_{dt.now().strftime('%H%M%S')}.png"
+                    return ToolReturn(
+                        return_value="Reference design validated.",
+                        content=[BinaryContent(data=snapshot, media_type="image/png")],
                     )
-                    sim.get_snapshot(filepath=snapshot_path)
-                    return "Design is valid. Return the design summary to the user."
                 else:
-                    # update tool call result to context
-                    ctx.deps["simulation_result"] = result
-                    return f"Design is invalid. Rigidbody Simulation result: {result}"
+                    return ToolReturn(
+                        return_value="Validation failed the design is not stable. Please check the design and try again.",
+                        content=[BinaryContent(data=snapshot, media_type="image/png")],
+                    )
             except Exception as e:
+                print(f"Error during design validation: {e}")
                 return f"Error during design validation: {e}"
             finally:
                 # save the result to a json file in the output dir
-                with open(ctx.deps.output_dir / "objective.json", "w") as f:
+                with open(output_dir / "objective.json", "w") as f:
                     json.dump(ctx.deps, f, indent=4)
 
     def run(self, objective: Objective) -> Objective:
@@ -142,4 +148,4 @@ class MasonAgent:
             deps=deps,
             usage_limits=UsageLimits(tool_calls_limit=MAX_GH_TOOL_CALLS),
         )
-        print(f"Agent run completed: {result.output}")
+        print("Agent run completed")
