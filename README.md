@@ -31,7 +31,7 @@ LOGFIRE_TOKEN=[Your TOKEN]
 ```
 
 ### Install Blender
-[Blender 5.2](https://www.blender.org/download/releases/4-4/) 
+[Blender 5.2](https://www.blender.org/download/releases/5-2/) 
 
 ### Run the example
 ```sh
