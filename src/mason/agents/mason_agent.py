@@ -44,7 +44,7 @@ class MasonAgent:
         self.last_usage = None
 
         @self.agent.tool
-        def get_design_snapshot(ctx: RunContext[dict]) -> ToolReturn:
+        async def get_design_snapshot(ctx: RunContext[dict]) -> ToolReturn:
             try:
                 ref_input_dir = ctx.deps.get("ref_input_dir")
                 if ref_input_dir is None or not Path(ref_input_dir).exists():
@@ -67,7 +67,7 @@ class MasonAgent:
                 return ToolReturn(return_value=f"Error generating snapshot: {e}")
 
         @self.agent.tool(retries=3)
-        def validate_brick_design(ctx: RunContext[dict], design: BrickDesign) -> ToolReturn:
+        async def validate_brick_design(ctx: RunContext[dict], design: BrickDesign) -> ToolReturn:
             output_dir = Path(ctx.deps.get("output_dir"))
             print(f"Validating design with {len(design.bricks)} bricks...")
             try:
