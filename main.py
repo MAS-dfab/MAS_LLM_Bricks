@@ -8,7 +8,7 @@ from mason.agents.mason_agent import MasonAgent
 from mason.utils.brick_utils import Objective
 
 INPUT_DIR = Path(__file__).parent / "input"
-INPUT_DESIGN_FILE = INPUT_DIR / "ref_design.json"
+INPUT_DESIGN_FILE = INPUT_DIR / "brick_design_01.json"
 load_dotenv(override=True)
 
 if __name__ == "__main__":
@@ -20,7 +20,11 @@ if __name__ == "__main__":
         print(f"Failed to configure Logfire: {e}")
 
     # create an objective
-    objective = Objective()
+    if not INPUT_DESIGN_FILE.exists():
+        ref = None
+    else:
+        ref = str(INPUT_DESIGN_FILE)
+    objective = Objective(ref_input_dir=ref)
 
     # create an agent
     agent = MasonAgent()
