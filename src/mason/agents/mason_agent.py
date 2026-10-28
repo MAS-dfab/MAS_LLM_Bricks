@@ -123,7 +123,7 @@ class MasonAgent:
 
         # read the design input from the objective
         if objective.ref_input_dir:
-            ref_input_dir = objective.ref_input_dir
+            ref_input_dir = Path(objective.ref_input_dir)
             if not ref_input_dir.exists():
                 raise FileNotFoundError(f"Design input file not found: {ref_input_dir}")
             with open(ref_input_dir, "r") as f:
